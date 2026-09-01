@@ -30,6 +30,12 @@ test('three-minute lead never produces a negative timestamp', () => {
   assert.equal(formatTimestamp(playbackStartSeconds(90)), '00:00:00');
 });
 
+test('fractional seconds from the audio player are floored, not leaked into the label', () => {
+  assert.equal(formatTimestamp(4461.0942400000003545), '01:14:21');
+  assert.equal(formatTimestamp(8041.999999), '02:14:01');
+  assert.equal(formatTimestamp(0.5), '00:00:00');
+});
+
 test('every item links to matching official Radio-T episode and MP3', () => {
   for (const item of catalog) {
     assert.match(item.episodeUrl, new RegExp(`^https://radio-t\\.com/p/\\d{4}/\\d{2}/\\d{2}/podcast-${item.episode}/$`), item.id);

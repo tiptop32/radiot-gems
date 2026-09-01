@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, Pause, Play, Radio, RotateCcw, Search, X } from 'lucide-react';
+import { ExternalLink, FastForward, Pause, Play, Radio, Rewind, RotateCcw, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import finds from '@/data/finds.json';
 import { formatTimestamp, playbackStartSeconds } from '@/lib/timestamp';
@@ -13,6 +13,7 @@ export default function Home() {
   const [level, setLevel] = useState('Любой');
   const [activeFind, setActiveFind] = useState<Find | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playback, setPlayback] = useState({ current: 0, duration: 0 });
   const searchRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -60,6 +61,20 @@ export default function Home() {
     const audio = audioRef.current;
     if (!audio || !activeFind) return;
     if (audio.paused) void audio.play(); else audio.pause();
+  };
+
+  const syncPlayback = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setPlayback({ current: audio.currentTime, duration: Number.isFinite(audio.duration) ? audio.duration : 0 });
+  };
+
+  const seekBy = (seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+    audio.currentTime = Math.min(Math.max(audio.currentTime + seconds, 0), duration || audio.currentTime);
+    syncPlayback();
   };
 
   const clearFilters = () => { setQuery(''); setCategory('Все'); setLevel('Любой'); };
@@ -113,9 +128,8 @@ export default function Home() {
                   <td data-label="Уровень"><span className={`level level-${item.level.toLocaleLowerCase('ru')}`}>{item.level}</span></td>
                   <td data-label="Выпуск"><a href={item.episodeUrl} target="_blank" rel="noreferrer" aria-label={`Открыть страницу выпуска ${item.episode}`}>#{item.episode} <ExternalLink aria-hidden="true" /></a></td>
                   <td data-label="Слушать">
-                    <button type="button" className="play-button" onClick={() => playFromTimestamp(item)} aria-label={`Слушать ${item.title} за три минуты до официального таймкода ${item.timestamp}`}><Play aria-hidden="true" /> с {formatTimestamp(playbackStartSeconds(item.timestampSeconds))}</button>
-                    <span className="official-time">Тема с {item.timestamp}</span>
-                    <a className="direct-link" href={`${item.audioUrl}#t=${playbackStartSeconds(item.timestampSeconds)}`} target="_blank" rel="noreferrer" aria-label={`Открыть MP3 выпуска ${item.episode} за три минуты до темы с таймкодом ${item.timestamp}`}>MP3 за 3 минуты до темы</a>
+                    <button type="button" className="play-button" onClick={() => playFromTimestamp(item)} aria-label={`Слушать ${item.title} с ${formatTimestamp(playbackStartSeconds(item.timestampSeconds))}`}><Play aria-hidden="true" /> с {formatTimestamp(playbackStartSeconds(item.timestampSeconds))}</button>
+                    <a className="direct-link" href={`${item.audioUrl}#t=${playbackStartSeconds(item.timestampSeconds)}`} target="_blank" rel="noreferrer" aria-label={`Открыть MP3 выпуска ${item.episode} с таймкода ${item.timestamp}`}>MP3 с этого места</a>
                   </td>
                 </tr>
               ))}</tbody>
@@ -127,12 +141,37 @@ export default function Home() {
         <p className="source-note">Темы, страницы выпусков и таймкоды сверены с официальными шоунотами и API «Радио-Т».</p>
       </section>
 
-      <aside className={activeFind ? 'player player-visible' : 'player'} aria-label="Плеер выбранной находки" aria-live="polite">
+      <aside className={activeFind ? 'player player-visible' : 'player'} aria-label="Плеер выбранной находки">
         {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- Radio-T does not publish caption tracks for these podcast MP3s. */}
-        <audio ref={audioRef} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnded={() => setIsPlaying(false)} preload="metadata" />
+        <audio ref={audioRef} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnded={() => setIsPlaying(false)} onTimeUpdate={syncPlayback} onLoadedMetadata={syncPlayback} onDurationChange={syncPlayback} preload="metadata" />
         {activeFind && <>
           <button className="player-toggle" type="button" onClick={togglePlayback} aria-label={isPlaying ? 'Поставить на паузу' : 'Продолжить воспроизведение'}>{isPlaying ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</button>
-          <div className="player-copy"><span>СЕЙЧАС В ЭФИРЕ · #{activeFind.episode}</span><strong>{activeFind.title}</strong><small>Старт с {formatTimestamp(playbackStartSeconds(activeFind.timestampSeconds))} · тема с {activeFind.timestamp}</small></div>
+          <div className="player-body">
+            <div className="player-copy"><span>СЕЙЧАС В ЭФИРЕ · #{activeFind.episode}</span><strong>{activeFind.title}</strong><small>Старт с {formatTimestamp(playbackStartSeconds(activeFind.timestampSeconds))}</small></div>
+            <div className="player-progress-row">
+              <span className="player-time">{formatTimestamp(playback.current)}</span>
+              <input
+                className="player-progress"
+                type="range"
+                min={0}
+                max={playback.duration || 1}
+                step={1}
+                value={Math.min(playback.current, playback.duration || playback.current)}
+                onChange={(event) => {
+                  const audio = audioRef.current;
+                  const value = Number(event.target.value);
+                  if (audio && Number.isFinite(value)) { audio.currentTime = value; setPlayback((prev) => ({ ...prev, current: value })); }
+                }}
+                aria-label="Позиция воспроизведения"
+                disabled={!playback.duration}
+              />
+              <span className="player-time">{playback.duration ? formatTimestamp(playback.duration) : '--:--:--'}</span>
+            </div>
+          </div>
+          <div className="player-seeks">
+            <button className="player-seek" type="button" onClick={() => seekBy(-30)} aria-label="Назад на 30 секунд"><Rewind aria-hidden="true" /></button>
+            <button className="player-seek" type="button" onClick={() => seekBy(30)} aria-label="Вперёд на 30 секунд"><FastForward aria-hidden="true" /></button>
+          </div>
           <button className="player-close" type="button" onClick={() => { audioRef.current?.pause(); setActiveFind(null); }} aria-label="Закрыть плеер"><X aria-hidden="true" /></button>
         </>}
       </aside>
