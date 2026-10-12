@@ -3,9 +3,13 @@ import { readFile } from 'node:fs/promises';
 // UI source is the page plus the components and hooks it is built from.
 const sources = [
   'app/page.tsx',
+  'components/catalog-filters.tsx',
   'components/finds-table.tsx',
   'components/player.tsx',
+  'components/year-dial.tsx',
   'hooks/use-audio-player.ts',
+  'hooks/use-listening.ts',
+  'hooks/use-url-state.ts',
   'lib/finds.ts',
 ];
 const page = (
@@ -23,15 +27,28 @@ const catalog = JSON.parse(
   await readFile(new URL('../data/finds.json', import.meta.url), 'utf8'),
 );
 
+const sections = new Set(catalog.map((item) => item.section));
+
 const checks = [
-  ['catalog is useful immediately', catalog.length >= 15],
+  ['catalog is useful immediately', catalog.length >= 40],
+  ['catalog covers more than development', sections.size >= 6],
   [
     'search is keyboard accessible',
     page.includes('metaKey') && page.includes('searchRef.current?.focus()'),
   ],
   [
-    'category and level filters exist',
-    page.includes('Категория') && page.includes('Уровень'),
+    'section chips, tags, audience, year and sort filters exist',
+    page.includes('aria-pressed={pressed}') &&
+      page.includes('label="Для кого"') &&
+      page.includes('label="Год"') &&
+      page.includes('label="Порядок"') &&
+      page.includes('className="tag-link"'),
+  ],
+  [
+    'filters and the linked find live in the URL',
+    page.includes('filtersToSearch(next)') &&
+      page.includes('window.location.hash') &&
+      page.includes('id={item.id}'),
   ],
   [
     'semantic table is present',
@@ -40,8 +57,10 @@ const checks = [
       page.includes('<caption'),
   ],
   [
-    'episode and timestamp actions are separate',
-    page.includes('episodeUrl') && page.includes('MP3 с этого места'),
+    'episode, source and timestamp actions are separate',
+    page.includes('episodeUrl') &&
+      page.includes('sourceUrl') &&
+      page.includes('MP3 с этого места'),
   ],
   [
     'player has a progress bar',
@@ -59,10 +78,22 @@ const checks = [
       page.includes('`Вперёд на ${SEEK_STEP_SECONDS} секунд`'),
   ],
   [
+    'player has speed, next and random controls',
+    page.includes('PLAYBACK_RATES') &&
+      page.includes('Следующая находка') &&
+      page.includes('Случайная'),
+  ],
+  [
+    'listening progress is remembered',
+    page.includes("storedValue<string[]>('listened'") &&
+      page.includes("storedValue<Resume | null>('resume'") &&
+      page.includes('markListened'),
+  ],
+  [
     'in-page player applies the three-minute lead',
     page.includes('audio.currentTime = startSeconds') &&
       page.includes('playbackStartSeconds(find.timestampSeconds)') &&
-      page.includes('playFrom(item.audioUrl, findStartSeconds(item))'),
+      page.includes('const start = findStartSeconds(item)'),
   ],
   [
     'mobile layout avoids table overflow',

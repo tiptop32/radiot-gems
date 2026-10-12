@@ -2,14 +2,19 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
-  ALL_CATEGORIES,
-  ANY_LEVEL,
-  LEVELS,
-  LEVEL_SLUGS,
-  categoriesOf,
+  AUDIENCES,
+  DEFAULT_FILTERS,
+  SECTIONS,
   filterFinds,
+  filtersFromSearch,
+  filtersToSearch,
+  findYear,
   findsLabel,
+  hasActiveFilters,
+  tagsOf,
+  yearsOf,
 } from '../lib/catalog.js';
+import { timestampToSeconds } from '../lib/shownotes.js';
 import {
   formatTimestamp,
   playbackStartSeconds,
@@ -20,12 +25,16 @@ const catalog = JSON.parse(
   await readFile(new URL('../data/finds.json', import.meta.url), 'utf8'),
 );
 
-const timestampToSeconds = (timestamp) =>
-  timestamp.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+const ids = (filters) =>
+  filterFinds(catalog, { ...DEFAULT_FILTERS, ...filters }).map(
+    (item) => item.id,
+  );
 
-test('catalog contains the verified starter selection', () => {
-  assert.equal(catalog.length, 15);
+test('catalog ids are unique and start with the episode number', () => {
+  assert.ok(catalog.length >= 40);
   assert.equal(new Set(catalog.map((item) => item.id)).size, catalog.length);
+  for (const item of catalog)
+    assert.match(item.id, new RegExp(`^${item.episode}-[a-z0-9-]+$`));
 });
 
 test('every timestamp matches its deterministic seconds value', () => {
@@ -65,7 +74,7 @@ test('fractional seconds from the audio player are floored, not leaked into the 
   assert.equal(formatTimestamp(0.5), '00:00:00');
 });
 
-test('every item links to matching official Radio-T episode and MP3', () => {
+test('every item links to matching official Radio-T episode, MP3 and source', () => {
   for (const item of catalog) {
     assert.match(
       item.episodeUrl,
@@ -79,55 +88,112 @@ test('every item links to matching official Radio-T episode and MP3', () => {
       `https://cdn.radio-t.com/rt_podcast${item.episode}.mp3`,
       item.id,
     );
+    // A few show-note topics have no linked article.
+    if (item.sourceUrl !== null)
+      assert.match(item.sourceUrl, /^https?:\/\/\S+$/, item.id);
   }
 });
 
-test('catalog metadata is complete and uses supported levels', () => {
+test('catalog metadata is complete and uses known sections and audiences', () => {
+  const sections = new Set(SECTIONS.map((section) => section.id));
+  const audiences = new Set(AUDIENCES.map((audience) => audience.id));
   for (const item of catalog) {
-    assert.ok(item.title && item.summary && item.category, item.id);
-    assert.ok(LEVELS.includes(item.level), item.id);
+    assert.ok(item.title && item.summary, item.id);
+    assert.ok(sections.has(item.section), item.id);
+    assert.ok(audiences.has(item.audience), item.id);
+    assert.ok(item.tags.length > 0, item.id);
+    for (const tag of item.tags)
+      assert.equal(tag, tag.trim().toLocaleLowerCase('ru'), item.id);
   }
 });
 
-test('every level has an ASCII CSS slug', () => {
-  assert.deepEqual(LEVELS, ['Начать', 'Средняя', 'Глубоко']);
-  for (const slug of Object.values(LEVEL_SLUGS)) assert.match(slug, /^[a-z]+$/);
+test('every section has finds', () => {
+  for (const section of SECTIONS)
+    assert.ok(ids({ section: section.id }).length >= 4, section.id);
 });
-
-const noFilters = { query: '', category: ALL_CATEGORIES, level: ANY_LEVEL };
 
 test('filters are no-ops by default', () => {
-  assert.deepEqual(filterFinds(catalog, noFilters), catalog);
-});
-
-test('search is case-insensitive, trimmed and covers the episode number', () => {
-  const ids = (query) =>
-    filterFinds(catalog, { ...noFilters, query }).map((item) => item.id);
-  assert.deepEqual(ids('  POSTGRES '), [
-    '917-postgres-not-mongo',
-    '912-postgres-everything',
-  ]);
-  assert.deepEqual(ids('1028'), ['1028-juniors']);
-  assert.deepEqual(ids('нет такой темы'), []);
-});
-
-test('category and level filters combine', () => {
-  const result = filterFinds(catalog, {
-    ...noFilters,
-    category: 'Архитектура',
-    level: 'Средняя',
-  });
   assert.deepEqual(
-    result.map((item) => item.id),
-    ['605-code-debt', '721-debt-fiction'],
+    ids({}),
+    catalog.map((item) => item.id),
   );
 });
 
-test('categories are unique and keep catalog order', () => {
-  const categories = categoriesOf(catalog);
-  assert.equal(categories[0], catalog[0].category);
-  assert.equal(new Set(categories).size, categories.length);
-  assert.ok(!categories.includes(ALL_CATEGORIES));
+test('search is case-insensitive, trimmed and covers tags and episodes', () => {
+  assert.deepEqual(ids({ query: '  POSTGRES ' }), [
+    '917-postgres-not-mongo',
+    '912-postgres-everything',
+  ]);
+  assert.deepEqual(ids({ query: '1028' }), [
+    '1028-juniors',
+    '1028-ai-middle-class',
+  ]);
+  assert.ok(ids({ query: 'passkeys' }).includes('857-passkeys'));
+  assert.deepEqual(ids({ query: 'нет такой темы' }), []);
+});
+
+test('section, tag, audience and year filters combine', () => {
+  assert.deepEqual(ids({ section: 'dev', tag: 'техдолг' }), [
+    '605-code-debt',
+    '721-debt-fiction',
+  ]);
+  assert.deepEqual(ids({ audience: 'ops', section: 'security' }), [
+    '880-okta-breach',
+  ]);
+  for (const id of ids({ year: '2024' }))
+    assert.equal(findYear(catalog.find((item) => item.id === id)), 2024);
+});
+
+test('sorting by episode keeps every find', () => {
+  const episodes = (sort) =>
+    ids({ sort }).map((id) => Number(id.split('-')[0]));
+  assert.equal(episodes('new').length, catalog.length);
+  assert.deepEqual(
+    episodes('new'),
+    episodes('new').toSorted((a, b) => b - a),
+  );
+  assert.deepEqual(
+    episodes('old'),
+    episodes('old').toSorted((a, b) => a - b),
+  );
+});
+
+test('tags are counted per section, most used first', () => {
+  const devTags = tagsOf(catalog, 'dev');
+  assert.equal(devTags[0], 'архитектура');
+  assert.ok(!devTags.includes('пароли'));
+  assert.ok(tagsOf(catalog, '').includes('пароли'));
+});
+
+test('years come from the episode URL and are counted', () => {
+  const years = yearsOf(catalog);
+  const total = years.reduce((sum, [, count]) => sum + count, 0);
+  assert.equal(total, catalog.length);
+  const order = years.map(([year]) => year);
+  assert.deepEqual(
+    order,
+    order.toSorted((a, b) => a - b),
+  );
+});
+
+test('filters round-trip through the URL and drop unknown values', () => {
+  const filters = {
+    ...DEFAULT_FILTERS,
+    query: 'open source',
+    section: 'industry',
+    tag: 'лицензии',
+    audience: 'all',
+    year: '2024',
+    sort: 'new',
+  };
+  assert.deepEqual(filtersFromSearch(filtersToSearch(filters)), filters);
+  assert.equal(filtersToSearch(DEFAULT_FILTERS), '');
+  assert.equal(filtersToSearch({ ...DEFAULT_FILTERS, query: '   ' }), '');
+  assert.ok(!hasActiveFilters(DEFAULT_FILTERS));
+  assert.deepEqual(
+    filtersFromSearch('?section=space&for=everyone&year=20x4&sort=random'),
+    DEFAULT_FILTERS,
+  );
 });
 
 test('find counter uses Russian plural forms', () => {

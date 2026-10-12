@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
-import { FastForward, Pause, Play, Rewind, X } from 'lucide-react';
-import type { useAudioPlayer } from '@/hooks/use-audio-player';
+import { FastForward, Pause, Play, Rewind, SkipForward, X } from 'lucide-react';
+import { PLAYBACK_RATES, type useAudioPlayer } from '@/hooks/use-audio-player';
 import { type Find, findStartSeconds } from '@/lib/finds';
 import { formatTimestamp } from '@/lib/timestamp';
 
@@ -8,13 +8,28 @@ const SEEK_STEP_SECONDS = 30;
 
 type PlayerProps = {
   find: Find | null;
+  nextFind: Find | null;
   player: ReturnType<typeof useAudioPlayer>;
+  onRateChange: (rate: number) => void;
+  onNext: () => void;
   onClose: () => void;
 };
 
-export function Player({ find, player, onClose }: PlayerProps) {
-  const { audioProps, isPlaying, position, toggle, seekTo, seekBy } = player;
+export function Player({
+  find,
+  nextFind,
+  player,
+  onRateChange,
+  onNext,
+  onClose,
+}: PlayerProps) {
+  const { audioProps, isPlaying, position, rate, toggle, seekTo, seekBy } =
+    player;
   const { current, duration } = position;
+  const nextRate =
+    PLAYBACK_RATES[
+      (PLAYBACK_RATES.indexOf(rate as never) + 1) % PLAYBACK_RATES.length
+    ];
 
   return (
     <aside
@@ -42,7 +57,9 @@ export function Player({ find, player, onClose }: PlayerProps) {
           <div className="player-body">
             <div className="player-copy">
               <span>СЕЙЧАС В ЭФИРЕ · #{find.episode}</span>
-              <strong>{find.title}</strong>
+              <strong>
+                <a href={`#${find.id}`}>{find.title}</a>
+              </strong>
               <small>Старт с {formatTimestamp(findStartSeconds(find))}</small>
             </div>
             <div className="player-progress-row">
@@ -64,18 +81,36 @@ export function Player({ find, player, onClose }: PlayerProps) {
             </div>
           </div>
           <div className="player-seeks">
-            <SeekButton
+            <PlayerButton
               onClick={() => seekBy(-SEEK_STEP_SECONDS)}
               aria-label={`Назад на ${SEEK_STEP_SECONDS} секунд`}
             >
               <Rewind aria-hidden="true" />
-            </SeekButton>
-            <SeekButton
+            </PlayerButton>
+            <PlayerButton
               onClick={() => seekBy(SEEK_STEP_SECONDS)}
               aria-label={`Вперёд на ${SEEK_STEP_SECONDS} секунд`}
             >
               <FastForward aria-hidden="true" />
-            </SeekButton>
+            </PlayerButton>
+            <PlayerButton
+              className="player-seek player-rate"
+              onClick={() => onRateChange(nextRate)}
+              aria-label={`Скорость ×${rate}, переключить на ×${nextRate}`}
+            >
+              ×{rate}
+            </PlayerButton>
+            <PlayerButton
+              onClick={onNext}
+              disabled={!nextFind}
+              aria-label={
+                nextFind
+                  ? `Следующая находка: ${nextFind.title}`
+                  : 'Следующей находки нет'
+              }
+            >
+              <SkipForward aria-hidden="true" />
+            </PlayerButton>
           </div>
           <button
             className="player-close"
@@ -91,6 +126,6 @@ export function Player({ find, player, onClose }: PlayerProps) {
   );
 }
 
-function SeekButton(props: ComponentProps<'button'>) {
+function PlayerButton(props: ComponentProps<'button'>) {
   return <button className="player-seek" type="button" {...props} />;
 }

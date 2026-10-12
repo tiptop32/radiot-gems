@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+export const PLAYBACK_RATES = [1, 1.25, 1.5, 2] as const;
 
 const finiteOrZero = (value: number) => (Number.isFinite(value) ? value : 0);
 
 // Drives a single <audio> element: the caller spreads `audioProps` onto it.
-export function useAudioPlayer() {
+export function useAudioPlayer({ rate = 1 } = {}) {
   const audioRef = useRef<HTMLAudioElement>(null);
   // A seek waiting for metadata; replaced when another track is requested.
   const pendingStartRef = useRef<(() => void) | null>(null);
@@ -30,9 +32,9 @@ export function useAudioPlayer() {
     void audio.play().catch(() => setIsPlaying(false));
   };
 
-  // Plays `src` from `startSeconds`, reusing the loaded file when only the
+  // Loads `src` at `startSeconds`, reusing the loaded file when only the
   // position changes (several finds can come from the same episode).
-  const playFrom = (src: string, startSeconds: number) => {
+  const load = (src: string, startSeconds: number, autoplay = true) => {
     const audio = audioRef.current;
     if (!audio) return;
     cancelPendingStart();
@@ -40,7 +42,7 @@ export function useAudioPlayer() {
       pendingStartRef.current = null;
       audio.currentTime = startSeconds;
       syncPosition();
-      play(audio);
+      if (autoplay) play(audio);
     };
     if (audio.getAttribute('src') !== src) {
       audio.src = src;
@@ -74,6 +76,15 @@ export function useAudioPlayer() {
     if (audio) seekTo(audio.currentTime + deltaSeconds);
   };
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    // defaultPlaybackRate survives loading another episode.
+    if (audio) audio.defaultPlaybackRate = audio.playbackRate = rate;
+  }, [rate]);
+
+  const hasSource = (src: string) =>
+    audioRef.current?.getAttribute('src') === src;
+
   const stop = () => {
     cancelPendingStart();
     audioRef.current?.pause();
@@ -94,7 +105,9 @@ export function useAudioPlayer() {
     audioProps,
     isPlaying,
     position,
-    playFrom,
+    rate,
+    hasSource,
+    load,
     toggle,
     seekTo,
     seekBy,
