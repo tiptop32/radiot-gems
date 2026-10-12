@@ -18,8 +18,21 @@ npm run dev
 npm test
 npm run eval
 npm run lint
+npm run format:check
 npm run build
 ```
+
+## Структура
+
+- `app/page.tsx` — страница: шапка, поиск, фильтры, состояние каталога.
+- `components/finds-table.tsx`, `components/player.tsx` — таблица находок и
+  нижний плеер.
+- `hooks/use-audio-player.ts` — управление `<audio>`: старт с таймкода,
+  пауза, перемотка, прогресс.
+- `lib/catalog.js` — фильтрация, список категорий и уровней, склонение
+  счётчика; `lib/timestamp.js` — таймкоды. Оба модуля на JS, чтобы
+  `node --test` проверял их без сборки.
+- `data/finds.json` — данные каталога.
 
 ## Публикация на GitHub Pages
 
@@ -36,7 +49,8 @@ npm run build
 Публикация работает так:
 
 1. Пуш в `main` запускает workflow `.github/workflows/pages.yml`.
-2. Workflow прогоняет `npm test`, `npm run eval`, `npm run lint`, собирает
+2. Workflow прогоняет `npm test`, `npm run eval`, `npm run lint`,
+   `npm run format:check`, собирает
    `npm run build:pages`, проверяет артефакт контрактом
    `tests/pages-artifact.test.mjs` и только потом загружает его.
 3. Задача деплоя публикует артефакт через `actions/deploy-pages` со встроенным

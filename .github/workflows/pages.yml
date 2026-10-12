@@ -9,9 +9,11 @@ on:
 permissions:
   contents: read
 
+# One run per ref: a newer push to a PR supersedes the older run, while
+# main-branch runs finish in order.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -42,6 +44,11 @@ jobs:
     # Deploy only for main-branch pushes and manual runs; PRs are validation-only.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
+    # Only deployments share the Pages group, so PR runs can never cancel a
+    # queued deploy.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
