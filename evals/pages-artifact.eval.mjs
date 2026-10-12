@@ -20,7 +20,11 @@ const checks = [
   ],
   [
     'og.png and favicon.svg ship at the uploaded artifact root',
-    !issues.some((issue) => issue.includes('missing og.png') || issue.includes('missing favicon.svg')),
+    !issues.some(
+      (issue) =>
+        issue.includes('missing og.png') ||
+        issue.includes('missing favicon.svg'),
+    ),
   ],
   [
     'every local reference resolves under /radiot-gems/',

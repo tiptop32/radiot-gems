@@ -24,7 +24,9 @@ const rootHtmlPath = () => path.join(ARTIFACT_ROOT, 'index.html');
 
 export async function ensureArtifactBuilt() {
   if (!existsSync(rootHtmlPath()))
-    throw new Error('missing dist/client/radiot-gems/index.html — run npm run build:pages');
+    throw new Error(
+      'missing dist/client/radiot-gems/index.html — run npm run build:pages',
+    );
 }
 
 function collectLocalRefs(html) {
@@ -105,8 +107,13 @@ export async function collectArtifactIssues() {
       const css = await readFile(path.join(ARTIFACT_ROOT, file), 'utf8');
       for (const ref of collectCssRefs(css)) {
         if (ref.startsWith('/') && ref.startsWith(`${BASE_PATH}/`)) {
-          const resolved = decodeURIComponent(ref.slice(`${BASE_PATH}/`.length));
-          if (!files.has(resolved)) issues.push(`CSS reference ${ref} does not resolve to a file in the artifact`);
+          const resolved = decodeURIComponent(
+            ref.slice(`${BASE_PATH}/`.length),
+          );
+          if (!files.has(resolved))
+            issues.push(
+              `CSS reference ${ref} does not resolve to a file in the artifact`,
+            );
         }
       }
     }
@@ -114,9 +121,13 @@ export async function collectArtifactIssues() {
       const js = await readFile(path.join(ARTIFACT_ROOT, file), 'utf8');
       for (const ref of collectJsRefs(js)) {
         if (!ref.startsWith('.')) continue;
-        const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(file), ref));
+        const resolved = path.posix.normalize(
+          path.posix.join(path.posix.dirname(file), ref),
+        );
         if (!files.has(resolved) && !files.has(`${resolved}.js`))
-          issues.push(`JS reference ${ref} from ${file} does not resolve to a file in the artifact`);
+          issues.push(
+            `JS reference ${ref} from ${file} does not resolve to a file in the artifact`,
+          );
       }
     }
   }
