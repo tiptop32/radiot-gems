@@ -2,6 +2,9 @@
 
 Курируемый каталог полезных тем из архива подкаста «Радио-Т». Каждая находка содержит категорию, уровень сложности, ссылку на официальный выпуск и точный таймкод.
 
+- Репозиторий: <https://github.com/tiptop32/radiot-gems>
+- Публикация: <https://tiptop32.github.io/radiot-gems/>
+
 ## Как запустить
 
 ```bash
@@ -16,6 +19,40 @@ npm test
 npm run eval
 npm run lint
 npm run build
+```
+
+## Публикация на GitHub Pages
+
+Сайт публикуется как статический экспорт. Команда `npm run build:pages` собирает
+его с переменной `GITHUB_PAGES=true`: vinext включается `output: 'export'`,
+ставит `basePath: '/radiot-gems'` и `trailingSlash: true`, Cloudflare-плагин не
+используется. Готовый загружаемый артефакт лежит в `dist/client/radiot-gems/` и обслуживается без
+сервера: его корневая страница — `index.html`. Pages монтирует именно этот каталог
+по адресу `/radiot-gems/`; загрузка родительского `dist/client/` добавит лишний
+уровень и даст 404. В vinext beta.5 prerender мог не создать `index.html`, поэтому
+используется beta.9 из lockfile и проверяется реальный артефакт. Обычная Cloudflare-сборка
+(`npm run build`) при этом не меняется.
+
+Публикация работает так:
+
+1. Пуш в `main` запускает workflow `.github/workflows/pages.yml`.
+2. Workflow прогоняет `npm test`, `npm run eval`, `npm run lint`, собирает
+   `npm run build:pages`, проверяет артефакт контрактом
+   `tests/pages-artifact.test.mjs` и только потом загружает его.
+3. Задача деплоя публикует артефакт через `actions/deploy-pages` со встроенным
+   `GITHUB_TOKEN` — внешние секреты не нужны.
+4. Pull request и ручной запуск (`workflow_dispatch`) собирают и проверяют сайт;
+   деплой выполняется только для `main`.
+
+После пуша ничего перезапускать не нужно: Pages отдаёт статику, обновление
+появляется по окончании workflow.
+
+Проверить сборку локально можно теми же командами:
+
+```bash
+npm run build:pages
+npm run test:pages
+npm run eval:pages
 ```
 
 ## Данные
