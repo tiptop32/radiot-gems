@@ -1,0 +1,40 @@
+name: Предложить находку
+description: Тема из «Радио-Т», которую стоит добавить в каталог
+title: 'Находка: '
+body:
+  - type: input
+    id: episode
+    attributes:
+      label: Номер выпуска
+      placeholder: '1028'
+    validations:
+      required: true
+  - type: input
+    id: topic
+    attributes:
+      label: Тема из шоунотов
+      description: Название темы так, как оно указано на странице выпуска.
+      placeholder: С джуниорами все будет хорошо
+    validations:
+      required: true
+  - type: dropdown
+    id: section
+    attributes:
+      label: Раздел
+      options:
+        - Разработка
+        - AI
+        - Инфраструктура
+        - Безопасность
+        - Железо
+        - Индустрия
+        - Карьера и команда
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Почему стоит послушать
+      description: Одно-два предложения — что вынесет слушатель.
+    validations:
+      required: true

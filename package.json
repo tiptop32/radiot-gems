@@ -15,7 +15,9 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "test": "node --test tests/catalog.test.mjs",
+    "test": "node --test tests/catalog.test.mjs tests/shownotes.test.mjs",
+    "finds:candidates": "node scripts/shownotes.mjs candidates",
+    "finds:verify": "node scripts/shownotes.mjs verify",
     "eval": "node evals/catalog.eval.mjs"
   },
   "dependencies": {
