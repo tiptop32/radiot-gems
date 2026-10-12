@@ -14,6 +14,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "test": "node --test tests/catalog.test.mjs",
     "eval": "node evals/catalog.eval.mjs"
   },
