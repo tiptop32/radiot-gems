@@ -1,9 +1,20 @@
 import { readFile } from 'node:fs/promises';
 
-const page = await readFile(
-  new URL('../app/page.tsx', import.meta.url),
-  'utf8',
-);
+// UI source is the page plus the components and hooks it is built from.
+const sources = [
+  'app/page.tsx',
+  'components/finds-table.tsx',
+  'components/player.tsx',
+  'hooks/use-audio-player.ts',
+  'lib/finds.ts',
+];
+const page = (
+  await Promise.all(
+    sources.map((file) =>
+      readFile(new URL(`../${file}`, import.meta.url), 'utf8'),
+    ),
+  )
+).join('\n');
 // CSS is compared without whitespace so formatting never breaks a check.
 const css = (
   await readFile(new URL('../app/globals.css', import.meta.url), 'utf8')
@@ -41,15 +52,17 @@ const checks = [
   ],
   [
     'player has 30-second seek buttons',
-    page.includes('seekBy(-30)') &&
-      page.includes('seekBy(30)') &&
-      page.includes('aria-label="Назад на 30 секунд"') &&
-      page.includes('aria-label="Вперёд на 30 секунд"'),
+    page.includes('SEEK_STEP_SECONDS = 30') &&
+      page.includes('seekBy(-SEEK_STEP_SECONDS)') &&
+      page.includes('seekBy(SEEK_STEP_SECONDS)') &&
+      page.includes('`Назад на ${SEEK_STEP_SECONDS} секунд`') &&
+      page.includes('`Вперёд на ${SEEK_STEP_SECONDS} секунд`'),
   ],
   [
     'in-page player applies the three-minute lead',
     page.includes('audio.currentTime = startSeconds') &&
-      page.includes('playbackStartSeconds(item.timestampSeconds)'),
+      page.includes('playbackStartSeconds(find.timestampSeconds)') &&
+      page.includes('playFrom(item.audioUrl, findStartSeconds(item))'),
   ],
   [
     'mobile layout avoids table overflow',

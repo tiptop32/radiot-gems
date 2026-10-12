@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
+  ALL_CATEGORIES,
+  ANY_LEVEL,
+  LEVELS,
+  LEVEL_SLUGS,
+  categoriesOf,
+  filterFinds,
+  findsLabel,
+} from '../lib/catalog.js';
+import {
   formatTimestamp,
   playbackStartSeconds,
   PLAYBACK_LEAD_SECONDS,
@@ -74,9 +83,65 @@ test('every item links to matching official Radio-T episode and MP3', () => {
 });
 
 test('catalog metadata is complete and uses supported levels', () => {
-  const supportedLevels = new Set(['Начать', 'Средняя', 'Глубоко']);
   for (const item of catalog) {
     assert.ok(item.title && item.summary && item.category, item.id);
-    assert.ok(supportedLevels.has(item.level), item.id);
+    assert.ok(LEVELS.includes(item.level), item.id);
   }
+});
+
+test('every level has an ASCII CSS slug', () => {
+  assert.deepEqual(LEVELS, ['Начать', 'Средняя', 'Глубоко']);
+  for (const slug of Object.values(LEVEL_SLUGS)) assert.match(slug, /^[a-z]+$/);
+});
+
+const noFilters = { query: '', category: ALL_CATEGORIES, level: ANY_LEVEL };
+
+test('filters are no-ops by default', () => {
+  assert.deepEqual(filterFinds(catalog, noFilters), catalog);
+});
+
+test('search is case-insensitive, trimmed and covers the episode number', () => {
+  const ids = (query) =>
+    filterFinds(catalog, { ...noFilters, query }).map((item) => item.id);
+  assert.deepEqual(ids('  POSTGRES '), [
+    '917-postgres-not-mongo',
+    '912-postgres-everything',
+  ]);
+  assert.deepEqual(ids('1028'), ['1028-juniors']);
+  assert.deepEqual(ids('нет такой темы'), []);
+});
+
+test('category and level filters combine', () => {
+  const result = filterFinds(catalog, {
+    ...noFilters,
+    category: 'Архитектура',
+    level: 'Средняя',
+  });
+  assert.deepEqual(
+    result.map((item) => item.id),
+    ['605-code-debt', '721-debt-fiction'],
+  );
+});
+
+test('categories are unique and keep catalog order', () => {
+  const categories = categoriesOf(catalog);
+  assert.equal(categories[0], catalog[0].category);
+  assert.equal(new Set(categories).size, categories.length);
+  assert.ok(!categories.includes(ALL_CATEGORIES));
+});
+
+test('find counter uses Russian plural forms', () => {
+  const cases = {
+    0: 'находок',
+    1: 'находка',
+    2: 'находки',
+    4: 'находки',
+    5: 'находок',
+    11: 'находок',
+    15: 'находок',
+    21: 'находка',
+    22: 'находки',
+  };
+  for (const [count, label] of Object.entries(cases))
+    assert.equal(findsLabel(Number(count)), label, count);
 });

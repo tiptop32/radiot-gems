@@ -359,10 +359,10 @@ td:first-child span {
   background: #72d59c;
   content: '';
 }
-.level-средняя::before {
+.level-medium::before {
   background: var(--amber);
 }
-.level-глубоко::before {
+.level-deep::before {
   background: #e87979;
 }
 td a {
@@ -404,9 +404,14 @@ td a svg {
   width: 14px;
   fill: currentColor;
 }
+.listen {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
 .direct-link {
   min-height: auto;
-  margin-top: 6px;
   color: #7f8e9e;
   font-size: 10px;
   text-decoration: underline;
@@ -620,6 +625,9 @@ td a svg {
   .filters label {
     min-width: 0;
   }
+  .filters select {
+    width: 100%;
+  }
   .reset-button {
     grid-column: 1/-1;
     justify-content: center;
@@ -673,13 +681,13 @@ td a svg {
   td:last-child {
     grid-column: 1/-1;
   }
-  .play-button {
-    width: 100%;
-    justify-content: center;
+  .listen {
+    align-items: stretch;
+    gap: 8px;
   }
+  .play-button,
   .direct-link {
     justify-content: center;
-    margin-top: 8px;
   }
   .player {
     right: 10px;
